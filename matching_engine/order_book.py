@@ -73,12 +73,17 @@ class OrderBook:
                 raise ValueError(f'Order ID must be an integer, got "{command_parts[1]}"')
             self.cancel_order(order_id)
         elif command_parts[0] == 'edit':
-            if len(command_parts) < 4:
-                raise ValueError('Edit requires 3 parameters: <order_id> <price> <qty>')
+            if len(command_parts) < 3:
+                raise ValueError('Edit requires a minimum of 3 parameters: <order_id> <qty>')
             try:
-                order_id = int(command_parts[1])
-                new_price = float(command_parts[2])
-                new_qty = float(command_parts[3])
+                if len(command_parts) == 3:
+                    order_id = int(command_parts[1])
+                    new_qty = float(command_parts[2])
+                    new_price = None
+                else:
+                    order_id = int(command_parts[1])
+                    new_price = float(command_parts[2])
+                    new_qty = float(command_parts[3])
             except ValueError as e:
                 raise ValueError(f'Invalid parameter types for edit command: {e}')
             self.edit_order(order_id, new_price, new_qty)
@@ -106,14 +111,20 @@ class OrderBook:
                 qty = float(order_attr[2])
             except ValueError:
                 raise ValueError(f'Quantity must be a number, got "{order_attr[2]}"')
-            
-            order = Order(self.next_id, order_attr[0], order_attr[1], -1, qty)
+
+            if len(order_attr) == 4:
+                order_id = int(order_attr[3])
+            else:
+                order_id = self.next_id
+                self.next_id += 1
+
+            order = Order(order_id, order_attr[0], order_attr[1], -1, qty)
             order = self.match_order(order)
 
             if order.qty > 0:
                 print(f'Unfilled quantity: {order.qty} (market order cancelled)')
             else:
-                print(f'Market order {self.next_id} executed successfully')
+                print(f'Market order {order.id_order} executed successfully')
 
         elif order_attr[0] == 'limit':
             try:
@@ -122,7 +133,13 @@ class OrderBook:
             except ValueError:
                 raise ValueError(f'Price and quantity must be numbers')
             
-            order = Order(self.next_id, order_attr[0], order_attr[1], price, qty)
+            if len(order_attr) == 5:
+                order_id = int(order_attr[4])
+            else:
+                order_id = self.next_id
+                self.next_id += 1
+
+            order = Order(order_id, order_attr[0], order_attr[1], price, qty)
             order = self.match_order(order)
 
             if order.qty > 0:
@@ -135,7 +152,7 @@ class OrderBook:
                             self.uptade_pegged('buy')
                     
                     self.orders_by_id[order.id_order] = order
-                    print(f'Limit buy order {self.next_id} placed at price {price} for qty {order.qty}')
+                    print(f'Limit buy order {order.id_order} placed at price {price} for qty {order.qty}')
                 elif order.side == 'sell':
                     if order.price in self.asks.keys():
                         self.asks[order.price].append(order)
@@ -145,39 +162,44 @@ class OrderBook:
                             self.uptade_pegged('sell')
                     
                     self.orders_by_id[order.id_order] = order
-                    print(f'Limit sell order {self.next_id} placed at price {price} for qty {order.qty}')
+                    print(f'Limit sell order {order.id_order} placed at price {price} for qty {order.qty}')
             else:
-                print(f'Limit order {self.next_id} fully executed')
+                print(f'Limit order {order.id_order} fully executed')
 
         elif order_attr[0] == 'peg':
             try:
                 qty = float(order_attr[2])
             except ValueError:
                 raise ValueError(f'Quantity must be a number, got "{order_attr[2]}"')
-            
+
+            if len(order_attr) == 4:
+                order_id = int(order_attr[3])
+            else:
+                order_id = self.next_id
+                self.next_id += 1
+
             if order_attr[1] == 'buy':
                 if self.bids:
                     best_price = self.bids.peekitem(0)[0]
-                    order = Order(self.next_id, order_attr[0], order_attr[1], best_price, qty)
+                    order = Order(order_id, order_attr[0], order_attr[1], best_price, qty)
                     self.bids[order.price].append(order)
                     self.orders_by_id[order.id_order] = order
-                    print(f'Pegged buy order {self.next_id} placed at price {best_price} for qty {qty}')
+                    print(f'Pegged buy order {order.id_order} placed at price {best_price} for qty {qty}')
                 else:
                     print('No bids in the order book to peg against. Order not placed.')
             elif order_attr[1] == 'sell':
                 if self.asks:
                     best_price = self.asks.peekitem(0)[0]
-                    order = Order(self.next_id, order_attr[0], order_attr[1], best_price, qty)
+                    order = Order(order_id, order_attr[0], order_attr[1], best_price, qty)
                     self.asks[order.price].append(order)
                     self.orders_by_id[order.id_order] = order
-                    print(f'Pegged sell order {self.next_id} placed at price {best_price} for qty {qty}')
+                    print(f'Pegged sell order {order.id_order} placed at price {best_price} for qty {qty}')
                 else:
                     print('No asks in the order book to peg against. Order not placed.')
                 
 
     
 
-        self.next_id += 1
 
 
 
@@ -343,7 +365,7 @@ class OrderBook:
                     total_price += order.price
                     print(f"  Order ID: {order.id_order:3d} | Price: {order.price:8.2f} | Qty: {order.qty:8.2f}")
 
-                print(f"  Price Level: {price:8.2f} | Total Qty: {total_qty:8.2f} | Total Price: {total_price:8.2f}")
+                print(f"  Price Level: {price:8.2f} | Total Qty: {total_qty:8.2f}")
                 print("-" * 70)
         print()
 
@@ -403,12 +425,22 @@ class OrderBook:
         order_to_edit = self.cancel_order(id_order)
         
         if order_to_edit:
-            order_to_edit.price = new_price
-            order_to_edit.qty = new_qty
-            
-            self.insert_order([order_to_edit.type, order_to_edit.side, str(order_to_edit.price), str(order_to_edit.qty)])
+            if order_to_edit.type == 'limit':
+                if new_price is None:
+                    print(f"New price must be provided for limit orders.")
+                    return
+                order_to_edit.price = new_price
+                order_to_edit.qty = new_qty
+                
+                self.insert_order([order_to_edit.type, order_to_edit.side, str(order_to_edit.price), str(order_to_edit.qty), id_order])
 
-            print(f"Order ID {id_order} edited to Price: {new_price}, Qty: {new_qty}.")
+                print(f"Order ID {id_order} edited to Price: {new_price}, Qty: {new_qty}.")
+            elif order_to_edit.type == 'peg':
+                order_to_edit.qty = new_qty
+                
+                self.insert_order([order_to_edit.type, order_to_edit.side, str(order_to_edit.qty), id_order])
+
+                print(f"Pegged Order ID {id_order} edited to Qty: {new_qty}.")
         
         else:
             print(f"Order ID {id_order} could not be edited because it was not found.")
