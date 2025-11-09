@@ -122,7 +122,7 @@ class OrderBook:
             order = self.match_order(order)
 
             if order.qty > 0:
-                print(f'Unfilled quantity: {order.qty} (market order cancelled)')
+                print(f'Unfilled quantity: {order.qty} (remaining market order cancelled)')
             else:
                 print(f'Market order {order.id_order} executed successfully')
 

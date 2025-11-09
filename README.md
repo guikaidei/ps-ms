@@ -92,7 +92,7 @@ Digite seus comandos e pressione Enter. Use `help` para ver todos os comandos di
 | **market** | `market <buy\|sell> <qty>` | Cria uma ordem market |
 | **peg** | `peg <buy\|sell> <qty>` | Cria uma ordem pegged |
 | **cancel** | `cancel <order_id>` | Cancela uma ordem existente |
-| **edit** | `edit <order_id> <price> <qty>` | Edita preço e quantidade de uma ordem |
+| **edit** | `edit <order_id> <price> <qty>` | Edita preço e quantidade de uma ordem (para pegged orders basta não informar o preço) |
 | **print** | `print` | Exibe o estado atual do order book |
 | **help** | `help` | Mostra a lista de comandos |
 | **exit** | `exit` | Encerra a aplicação |
